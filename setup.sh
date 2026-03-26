@@ -3,18 +3,49 @@ set -e
 
 # =============================================================================
 # Home Assistant + Traefik — Automated Setup Script
+# Usage: ./setup.sh [--dry-run]
 # =============================================================================
 
 BOLD="\033[1m"
 GREEN="\033[0;32m"
 YELLOW="\033[1;33m"
 RED="\033[0;31m"
+CYAN="\033[0;36m"
 RESET="\033[0m"
+
+DRY_RUN=false
+if [[ "${1:-}" == "--dry-run" ]]; then
+  DRY_RUN=true
+fi
 
 info()    { echo -e "${GREEN}[INFO]${RESET} $1"; }
 warn()    { echo -e "${YELLOW}[WARN]${RESET} $1"; }
 error()   { echo -e "${RED}[ERROR]${RESET} $1"; exit 1; }
 section() { echo -e "\n${BOLD}=== $1 ===${RESET}"; }
+dryinfo() { echo -e "${CYAN}[DRY-RUN]${RESET} $1"; }
+
+# Wrapper: run a command or print it in dry-run mode
+run() {
+  if $DRY_RUN; then
+    dryinfo "Would run: $*"
+  else
+    "$@"
+  fi
+}
+
+# Write a file or print its content in dry-run mode
+writefile() {
+  local dest="$1"
+  local content="$2"
+  if $DRY_RUN; then
+    dryinfo "Would write file: $dest"
+    echo -e "${CYAN}--- content ---${RESET}"
+    echo "$content"
+    echo -e "${CYAN}--- end ---${RESET}"
+  else
+    echo "$content" > "$dest"
+  fi
+}
 
 # =============================================================================
 # ROOT CHECK
@@ -38,6 +69,10 @@ echo "  - Create all required directories and config files"
 echo "  - Set up Traefik and Home Assistant via Docker Compose"
 echo "  - Configure SSL via Cloudflare DNS challenge"
 echo ""
+if $DRY_RUN; then
+  echo -e "${CYAN}DRY-RUN MODE — no files will be written, no commands will be executed.${RESET}"
+  echo ""
+fi
 read -rp "Press ENTER to continue or Ctrl+C to abort..."
 
 # =============================================================================
@@ -113,30 +148,32 @@ if command -v docker &>/dev/null; then
   info "Docker already installed: $(docker --version)"
 else
   info "Installing Docker..."
-  curl -fsSL https://get.docker.com | sh
-  sudo usermod -aG docker "$USERNAME"
+  run curl -fsSL https://get.docker.com | sh
+  run sudo usermod -aG docker "$USERNAME"
   info "Docker installed. NOTE: You may need to log out and back in for group changes to take effect."
 fi
 
 if ! docker compose version &>/dev/null; then
   info "Installing Docker Compose plugin..."
-  sudo apt-get install -y docker-compose-plugin
+  run sudo apt-get install -y docker-compose-plugin
 fi
 
-info "Docker Compose: $(docker compose version)"
+if ! $DRY_RUN; then
+  info "Docker Compose: $(docker compose version)"
+fi
 
 # =============================================================================
 # STEP 2 — DIRECTORIES
 # =============================================================================
 section "Step 2 — Directories"
 
-mkdir -p "$DOCKERDIR/traefik"
-mkdir -p "$DOCKERDIR/smart-home/homeassistant"
-mkdir -p "$DOCKERDIR/logs/traefik"
-mkdir -p "$DATADIR/ha"
+run mkdir -p "$DOCKERDIR/traefik"
+run mkdir -p "$DOCKERDIR/smart-home/homeassistant"
+run mkdir -p "$DOCKERDIR/logs/traefik"
+run mkdir -p "$DATADIR/ha"
 
-touch "$DOCKERDIR/traefik/acme.json"
-chmod 600 "$DOCKERDIR/traefik/acme.json"
+run touch "$DOCKERDIR/traefik/acme.json"
+run chmod 600 "$DOCKERDIR/traefik/acme.json"
 
 info "Directories created."
 
@@ -145,8 +182,13 @@ info "Directories created."
 # =============================================================================
 section "Step 3 — Docker networks"
 
-docker network inspect traefik &>/dev/null || docker network create traefik
-docker network inspect smart_home &>/dev/null || docker network create smart_home
+if $DRY_RUN; then
+  dryinfo "Would run: docker network create traefik (if not exists)"
+  dryinfo "Would run: docker network create smart_home (if not exists)"
+else
+  docker network inspect traefik &>/dev/null || docker network create traefik
+  docker network inspect smart_home &>/dev/null || docker network create smart_home
+fi
 
 info "Networks ready."
 
@@ -155,7 +197,11 @@ info "Networks ready."
 # =============================================================================
 section "Step 4 — Environment file"
 
-cat > "$DOCKERDIR/.env" <<EOF
+if $DRY_RUN; then
+  dryinfo "Would write: $DOCKERDIR/.env"
+  dryinfo "  PUID=$PUID PGID=$PGID TZ=$TZ DOMAIN=$DOMAIN"
+else
+  cat > "$DOCKERDIR/.env" <<EOF
 PUID=$PUID
 PGID=$PGID
 TZ=$TZ
@@ -167,8 +213,8 @@ DATADIR=$DATADIR
 CF_API_EMAIL=$CF_EMAIL
 CF_DNS_API_TOKEN=$CF_TOKEN
 EOF
-
-chmod 600 "$DOCKERDIR/.env"
+  chmod 600 "$DOCKERDIR/.env"
+fi
 info ".env created."
 
 # =============================================================================
@@ -176,7 +222,11 @@ info ".env created."
 # =============================================================================
 section "Step 5 — Traefik config"
 
-cat > "$DOCKERDIR/traefik/traefik.yml" <<EOF
+if $DRY_RUN; then
+  dryinfo "Would write: $DOCKERDIR/traefik/traefik.yml"
+  dryinfo "Would write: $DOCKERDIR/traefik/config.yml"
+else
+  cat > "$DOCKERDIR/traefik/traefik.yml" <<EOF
 api:
   dashboard: false
   debug: false
@@ -214,7 +264,7 @@ certificatesResolvers:
           - "1.0.0.1:53"
 EOF
 
-cat > "$DOCKERDIR/traefik/config.yml" <<'EOF'
+  cat > "$DOCKERDIR/traefik/config.yml" <<'EOF'
 http:
   middlewares:
     default-headers:
@@ -244,6 +294,7 @@ http:
           - default-whitelist
           - default-headers
 EOF
+fi
 
 info "Traefik config files created."
 
@@ -252,7 +303,10 @@ info "Traefik config files created."
 # =============================================================================
 section "Step 6 — Traefik compose"
 
-cat > "$DOCKERDIR/traefik/docker-compose-traefik.yml" <<EOF
+if $DRY_RUN; then
+  dryinfo "Would write: $DOCKERDIR/traefik/docker-compose-traefik.yml"
+else
+  cat > "$DOCKERDIR/traefik/docker-compose-traefik.yml" <<EOF
 services:
   traefik:
     image: traefik:latest
@@ -292,6 +346,7 @@ networks:
   smart_home:
     external: true
 EOF
+fi
 
 info "Traefik compose file created."
 
@@ -300,7 +355,11 @@ info "Traefik compose file created."
 # =============================================================================
 section "Step 7 — Home Assistant compose"
 
-cat > "$DOCKERDIR/smart-home/homeassistant/docker-compose-homeassistant.yml" <<EOF
+if $DRY_RUN; then
+  dryinfo "Would write: $DOCKERDIR/smart-home/homeassistant/docker-compose-homeassistant.yml"
+  dryinfo "Would write: $DOCKERDIR/smart-home/docker-compose.yml"
+else
+  cat > "$DOCKERDIR/smart-home/homeassistant/docker-compose-homeassistant.yml" <<EOF
 services:
   homeassistant:
     container_name: homeassistant
@@ -330,7 +389,7 @@ services:
       - "traefik.http.routers.homeassistant-secure.middlewares=sslheader@docker"
 EOF
 
-cat > "$DOCKERDIR/smart-home/docker-compose.yml" <<'EOF'
+  cat > "$DOCKERDIR/smart-home/docker-compose.yml" <<'EOF'
 include:
   - ./homeassistant/docker-compose-homeassistant.yml
 
@@ -341,6 +400,7 @@ networks:
   traefik:
     external: true
 EOF
+fi
 
 info "Home Assistant compose files created."
 
@@ -350,7 +410,12 @@ info "Home Assistant compose files created."
 section "Step 8 — Home Assistant configuration"
 
 # Only write if configuration.yaml doesn't already exist
-if [ ! -f "$DATADIR/ha/configuration.yaml" ]; then
+if $DRY_RUN; then
+  dryinfo "Would write: $DATADIR/ha/configuration.yaml (if not exists)"
+  dryinfo "Would write: $DATADIR/ha/dashboard/dashboard.yaml"
+  dryinfo "Would touch: automations.yaml, scripts.yaml, scenes.yaml"
+  info "HA configuration files created."
+elif [ ! -f "$DATADIR/ha/configuration.yaml" ]; then
   cat > "$DATADIR/ha/configuration.yaml" <<'EOF'
 # Loads default set of integrations. Do not remove.
 default_config:
@@ -412,12 +477,10 @@ fi
 section "Step 9 — Starting containers"
 
 info "Starting Traefik..."
-cd "$DOCKERDIR/traefik"
-docker compose --env-file "$DOCKERDIR/.env" -f docker-compose-traefik.yml up -d
+run docker compose --env-file "$DOCKERDIR/.env" -f "$DOCKERDIR/traefik/docker-compose-traefik.yml" up -d
 
 info "Starting Home Assistant..."
-cd "$DOCKERDIR/smart-home"
-docker compose --env-file "$DOCKERDIR/.env" up -d
+run docker compose --env-file "$DOCKERDIR/.env" -f "$DOCKERDIR/smart-home/docker-compose.yml" up -d
 
 # =============================================================================
 # DONE

@@ -23,6 +23,12 @@ chmod +x setup.sh setup2.sh
 ./setup2.sh       # Step 2: install HACS, frontend cards, theme
 ```
 
+Run with `--dry-run` to preview all actions without making any changes:
+
+```bash
+./setup.sh --dry-run
+```
+
 ### Windows (Docker Desktop required)
 
 ```powershell
@@ -35,6 +41,60 @@ cd homeassist-setup
 ```
 
 > **Windows requirement:** [Docker Desktop](https://www.docker.com/products/docker-desktop) with WSL2 backend must be installed before running the scripts.
+
+---
+
+## Test the script without installing anything
+
+There are three ways to verify the scripts before running them for real.
+
+### 1. Syntax check (bash -n)
+
+Checks that the script has no syntax errors. Does not execute anything.
+
+```bash
+bash -n setup.sh && echo "OK"
+bash -n setup2.sh && echo "OK"
+```
+
+### 2. Dry-run mode (--dry-run)
+
+Runs the full script interactively but skips all file writes and command execution. Shows exactly what would happen with your inputs.
+
+```bash
+./setup.sh --dry-run
+```
+
+Example output:
+```
+=== Step 2 — Directories ===
+[DRY-RUN] Would run: mkdir -p /home/user/docker/traefik
+[DRY-RUN] Would run: mkdir -p /home/user/dockdata/ha
+...
+=== Step 4 — Environment file ===
+[DRY-RUN] Would write: /home/user/docker/.env
+[DRY-RUN]   PUID=1000 PGID=1000 TZ=Europe/London DOMAIN=myhome.com
+```
+
+### 3. Run in an isolated Ubuntu Docker container
+
+Test the full script in a clean Ubuntu environment without touching your host system. Useful if you want to verify the complete install flow.
+
+```bash
+# Start a throwaway Ubuntu container with Docker socket access
+docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$(pwd)":/setup \
+  ubuntu:22.04 bash
+
+# Inside the container:
+cd /setup
+apt-get update -qq && apt-get install -y -qq git curl sudo
+useradd -m testuser && echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+su - testuser -c "cd /setup && bash setup.sh"
+```
+
+> **Note:** The container shares your host's Docker socket, so any containers started by the script will run on your host. Use `--dry-run` inside the container if you only want to test without side effects.
 
 ---
 
