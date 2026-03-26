@@ -1,4 +1,4 @@
-# Home Assistant on Raspberry Pi — Full Setup Guide
+# Home Assistant Setup Guide — Linux & Windows
 
 This guide sets up a Home Assistant installation with:
 - **Docker** (standalone, no supervisor)
@@ -8,12 +8,57 @@ This guide sets up a Home Assistant installation with:
 
 ---
 
-## Prerequisites
+## Automated setup scripts
+
+Run the scripts for a fully automated setup instead of following the manual steps below.
+
+### Linux / Raspberry Pi
+
+```bash
+git clone https://github.com/tjelite1986/homeassist-setup.git
+cd homeassist-setup
+chmod +x setup.sh setup2.sh
+./setup.sh        # Step 1: install Docker, Traefik, Home Assistant
+# Complete HA onboarding at http://<your-ip>:8123
+./setup2.sh       # Step 2: install HACS, frontend cards, theme
+```
+
+### Windows (Docker Desktop required)
+
+```powershell
+git clone https://github.com/tjelite1986/homeassist-setup.git
+cd homeassist-setup
+# Run PowerShell as Administrator
+.\setup-windows.ps1        # Step 1: Traefik + Home Assistant
+# Complete HA onboarding at http://<your-ip>:8123
+.\setup2-windows.ps1       # Step 2: HACS, frontend cards, theme
+```
+
+> **Windows requirement:** [Docker Desktop](https://www.docker.com/products/docker-desktop) with WSL2 backend must be installed before running the scripts.
+
+---
+
+## Platform support
+
+| Platform | Script | Notes |
+|----------|--------|-------|
+| Raspberry Pi OS (Bookworm) | `setup.sh` | Recommended |
+| Ubuntu / Debian | `setup.sh` | Fully supported |
+| Windows 10/11 | `setup-windows.ps1` | Requires Docker Desktop + WSL2 |
+| macOS | — | Manual setup only (see steps below) |
+
+---
+
+## Manual setup
+
+Follow the steps below if you prefer to set everything up manually or if the automated scripts don't fit your environment.
+
+### Prerequisites
 
 | Requirement | Details |
 |-------------|---------|
-| Hardware | Raspberry Pi 4 (4 GB RAM+ recommended) |
-| OS | Raspberry Pi OS Lite 64-bit (Bookworm) |
+| Hardware | Raspberry Pi 4 (4 GB RAM+ recommended) or any Linux/Windows machine |
+| OS | Raspberry Pi OS Lite 64-bit (Bookworm), Ubuntu/Debian, or Windows 10/11 |
 | Domain | A domain you own (e.g. `myhome.com`) |
 | DNS provider | Cloudflare (free, required for SSL) |
 | Cloudflare API token | See step 2 |
@@ -388,7 +433,7 @@ docker restart homeassistant
 HACS is installed manually since we run standalone Docker (no supervisor):
 
 ```bash
-docker exec -it homeassistant bash -c \
+docker exec -i homeassistant bash -c \
   "wget -O - https://get.hacs.xyz | bash -"
 ```
 
