@@ -1,27 +1,26 @@
-# Home Assistant på Raspberry Pi — Fullständig installationsguide
+# Home Assistant on Raspberry Pi — Full Setup Guide
 
-Denna guide sätter upp en Home Assistant-installation med:
-- **Docker** (fristående, ingen supervisor)
-- **Traefik** reverse proxy med SSL via Cloudflare
-- **HACS** (custom cards & integrationer)
-- **UI Lovelace Minimalist**-tema
-- Struktur identisk med referensinstallationen
+This guide sets up a Home Assistant installation with:
+- **Docker** (standalone, no supervisor)
+- **Traefik** reverse proxy with SSL via Cloudflare
+- **HACS** (custom cards & integrations)
+- **UI Lovelace Minimalist** theme
 
 ---
 
-## Förutsättningar
+## Prerequisites
 
-| Krav | Detaljer |
-|------|----------|
-| Hårdvara | Raspberry Pi 4 (rekommenderat 4 GB RAM+) |
+| Requirement | Details |
+|-------------|---------|
+| Hardware | Raspberry Pi 4 (4 GB RAM+ recommended) |
 | OS | Raspberry Pi OS Lite 64-bit (Bookworm) |
-| Domän | En domän du äger (ex: `mitthem.se`) |
-| DNS-provider | Cloudflare (gratis, krävs för SSL) |
-| Cloudflare API-token | Se steg 2 |
+| Domain | A domain you own (e.g. `myhome.com`) |
+| DNS provider | Cloudflare (free, required for SSL) |
+| Cloudflare API token | See step 2 |
 
 ---
 
-## Steg 1 — Installera Docker
+## Step 1 — Install Docker
 
 ```bash
 curl -fsSL https://get.docker.com | sh
@@ -30,7 +29,7 @@ newgrp docker
 docker --version
 ```
 
-Installera även Docker Compose plugin:
+Install the Docker Compose plugin:
 
 ```bash
 sudo apt-get install -y docker-compose-plugin
@@ -39,27 +38,27 @@ docker compose version
 
 ---
 
-## Steg 2 — Cloudflare DNS & API-token
+## Step 2 — Cloudflare DNS & API token
 
-1. Registrera domänen på [cloudflare.com](https://cloudflare.com) och peka DNS-servrarna dit
-2. Logga in → **My Profile** → **API Tokens** → **Create Token**
-3. Välj mallen **Edit zone DNS**
-4. Under *Zone Resources* välj din domän
-5. Klicka **Continue to summary** → **Create Token**
-6. Kopiera token — du ser den bara en gång
+1. Register your domain on [cloudflare.com](https://cloudflare.com) and point the nameservers there
+2. Log in → **My Profile** → **API Tokens** → **Create Token**
+3. Select the **Edit zone DNS** template
+4. Under *Zone Resources* select your domain
+5. Click **Continue to summary** → **Create Token**
+6. Copy the token — you will only see it once
 
-DNS-poster du behöver i Cloudflare (A-poster):
+DNS records needed in Cloudflare (A records):
 ```
-home.dindomän.se  →  din-publik-IP    (Proxy: OFF / grå moln)
+home.yourdomain.com  →  your-public-IP    (Proxy: OFF / grey cloud)
 ```
 
-**OBS:** Sätt proxyn till "DNS only" (grå moln) för Home Assistant. Cloudflare-proxy med orange moln blockerar WebSocket.
+**NOTE:** Set the proxy to "DNS only" (grey cloud) for Home Assistant. The Cloudflare orange-cloud proxy blocks WebSocket connections.
 
 ---
 
-## Steg 3 — Mappstruktur
+## Step 3 — Directory structure
 
-Skapa mapparna:
+Create the directories:
 
 ```bash
 mkdir -p ~/docker/smart-home/homeassistant
@@ -70,29 +69,29 @@ touch ~/docker/traefik/acme.json
 chmod 600 ~/docker/traefik/acme.json
 ```
 
-Strukturen som används:
+Structure used:
 ```
-~/docker/                         ← compose-filer
+~/docker/                         <- compose files
   .env
   traefik/
     docker-compose-traefik.yml
     traefik.yml
     config.yml
-    acme.json                     ← SSL-certifikat (chmod 600!)
+    acme.json                     <- SSL certificates (chmod 600!)
   smart-home/
     docker-compose.yml
     homeassistant/
       docker-compose-homeassistant.yml
 
-~/dockdata/                       ← persistent data
-  ha/                             ← Home Assistant-konfiguration
+~/dockdata/                       <- persistent data
+  ha/                             <- Home Assistant configuration
 ```
 
 ---
 
-## Steg 4 — Docker-nätverk
+## Step 4 — Docker networks
 
-Skapa nätverken manuellt en gång:
+Create the networks once:
 
 ```bash
 docker network create traefik
@@ -101,31 +100,31 @@ docker network create smart_home
 
 ---
 
-## Steg 5 — Miljövariabler (.env)
+## Step 5 — Environment variables (.env)
 
-Skapa `~/docker/.env`:
+Create `~/docker/.env`:
 
 ```env
 PUID=1000
 PGID=1000
-TZ=Europe/Stockholm
-DOMAIN=dindomän.se
-DOCKERDIR=/home/dittanvändarnamn/docker
-DATADIR=/home/dittanvändarnamn/dockdata
+TZ=Europe/London
+DOMAIN=yourdomain.com
+DOCKERDIR=/home/yourusername/docker
+DATADIR=/home/yourusername/dockdata
 
 # Cloudflare
-CF_API_EMAIL=din-cloudflare-epost@exempel.se
-CF_DNS_API_TOKEN=din-cloudflare-api-token-här
+CF_API_EMAIL=your-cloudflare-email@example.com
+CF_DNS_API_TOKEN=your-cloudflare-api-token-here
 ```
 
-Ersätt:
-- `dindomän.se` med din domän
-- `dittanvändarnamn` med ditt Linux-användarnamn
-- `CF_API_EMAIL` och `CF_DNS_API_TOKEN` med dina Cloudflare-uppgifter
+Replace:
+- `yourdomain.com` with your domain
+- `yourusername` with your Linux username
+- `CF_API_EMAIL` and `CF_DNS_API_TOKEN` with your Cloudflare credentials
 
 ---
 
-## Steg 6 — Traefik
+## Step 6 — Traefik
 
 ### `~/docker/traefik/traefik.yml`
 
@@ -158,7 +157,7 @@ providers:
 certificatesResolvers:
   cloudflare:
     acme:
-      email: din-cloudflare-epost@exempel.se    # samma som CF_API_EMAIL
+      email: your-cloudflare-email@example.com    # same as CF_API_EMAIL
       storage: "acme.json"
       dnsChallenge:
         provider: cloudflare
@@ -243,7 +242,7 @@ networks:
     external: true
 ```
 
-Starta Traefik:
+Start Traefik:
 
 ```bash
 cd ~/docker/traefik
@@ -253,7 +252,7 @@ docker logs traefik --tail 20
 
 ---
 
-## Steg 7 — Home Assistant
+## Step 7 — Home Assistant
 
 ### `~/docker/smart-home/homeassistant/docker-compose-homeassistant.yml`
 
@@ -287,13 +286,13 @@ services:
       - "traefik.http.routers.homeassistant-secure.middlewares=sslheader@docker"
 ```
 
-**OBS om du har Zigbee/Z-Wave USB-dongel:** Lägg till under `devices:`:
+**NOTE — Zigbee/Z-Wave USB dongle:** Add under `devices:`:
 ```yaml
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
 ```
 
-Kontrollera vilken port din dongel hamnar på: `ls /dev/serial/by-id/`
+Check which port your dongle uses: `ls /dev/serial/by-id/`
 
 ### `~/docker/smart-home/docker-compose.yml`
 
@@ -309,7 +308,7 @@ networks:
     external: true
 ```
 
-Starta Home Assistant:
+Start Home Assistant:
 
 ```bash
 cd ~/docker/smart-home
@@ -317,20 +316,20 @@ docker compose up -d
 docker logs homeassistant --tail 30
 ```
 
-HA är nu tillgänglig på `http://din-pi-ip:8123` och (när certifikat hämtats, tar ~1 minut) på `https://home.dindomän.se`.
+HA is now available at `http://your-pi-ip:8123` and (once the certificate is issued, ~1 minute) at `https://home.yourdomain.com`.
 
 ---
 
-## Steg 8 — Grundkonfiguration av HA
+## Step 8 — Initial HA configuration
 
-1. Öppna `http://din-pi-ip:8123` i webbläsaren
-2. Skapa ditt konto
-3. Ange hemort, tidzon och enhetstyp
-4. Klart — HA-onboarding är klar
+1. Open `http://your-pi-ip:8123` in your browser
+2. Create your account
+3. Set your location, timezone and unit system
+4. Done — HA onboarding complete
 
 ### `~/dockdata/ha/configuration.yaml`
 
-Ersätt standard-`configuration.yaml` med detta (anpassa IP i `trusted_proxies` om din Docker-subnet skiljer sig):
+Replace the default `configuration.yaml` with this (adjust `trusted_proxies` if your Docker subnet differs):
 
 ```yaml
 # Loads default set of integrations. Do not remove.
@@ -349,27 +348,27 @@ scene: !include scenes.yaml
 homeassistant:
   debug: false
 
-# HTTP — krävs för att Traefik reverse proxy ska fungera
+# HTTP — required for Traefik reverse proxy to work
 http:
   use_x_forwarded_for: true
   trusted_proxies:
     - 127.0.0.1
     - ::1
-    - 172.16.0.0/12    # Docker bridge-nätverk
+    - 172.16.0.0/12    # Docker bridge networks
     - 192.168.0.0/16   # LAN
 
-# Lovelace YAML-dashboards
+# Lovelace YAML dashboards
 lovelace:
   dashboards:
-    lovelace-hem:
+    lovelace-home:
       mode: yaml
-      title: Hem
+      title: Home
       icon: mdi:home
       show_in_sidebar: true
       filename: dashboard/dashboard.yaml
 ```
 
-Skapa tomma include-filer om de saknas:
+Create empty include files if missing:
 ```bash
 touch ~/dockdata/ha/automations.yaml
 touch ~/dockdata/ha/scripts.yaml
@@ -377,44 +376,44 @@ touch ~/dockdata/ha/scenes.yaml
 mkdir -p ~/dockdata/ha/dashboard
 ```
 
-Starta om HA:
+Restart HA:
 ```bash
 docker restart homeassistant
 ```
 
 ---
 
-## Steg 9 — HACS (custom cards & integrationer)
+## Step 9 — HACS (custom cards & integrations)
 
-HACS installeras manuellt eftersom vi kör fristående Docker (ingen supervisor):
+HACS is installed manually since we run standalone Docker (no supervisor):
 
 ```bash
 docker exec -it homeassistant bash -c \
   "wget -O - https://get.hacs.xyz | bash -"
 ```
 
-Starta om HA efter installationen:
+Restart HA after installation:
 ```bash
 docker restart homeassistant
 ```
 
-Aktivera HACS i HA:
-1. **Inställningar** → **Enheter & tjänster** → **Lägg till integration** → sök "HACS"
-2. Följ anvisningarna (GitHub-autentisering krävs)
-3. Klart
+Enable HACS in HA:
+1. **Settings** → **Devices & Services** → **Add integration** → search "HACS"
+2. Follow the instructions (GitHub authentication required)
+3. Done
 
 ---
 
-## Steg 10 — UI Lovelace Minimalist
+## Step 10 — UI Lovelace Minimalist
 
-Installera via HACS:
-1. HACS → **Integrations** → sök "UI Lovelace Minimalist" → Installera
-2. Gå till **Inställningar** → **Enheter & tjänster** → **Lägg till integration** → "UI Lovelace Minimalist"
-3. Välj tema och konfigurera
+Install via HACS:
+1. HACS → **Integrations** → search "UI Lovelace Minimalist" → Install
+2. Go to **Settings** → **Devices & Services** → **Add integration** → "UI Lovelace Minimalist"
+3. Select a theme and configure
 
-### Anpassat tema (valfritt)
+### Custom theme (optional)
 
-Skapa `~/dockdata/ha/themes/minimalist-desktop/minimalist-custom.yaml`:
+Create `~/dockdata/ha/themes/minimalist-desktop/minimalist-custom.yaml`:
 
 ```yaml
 ---
@@ -451,125 +450,125 @@ minimalist-custom:
 
 ---
 
-## Steg 11 — Viktiga HACS-kort att installera
+## Step 11 — Recommended HACS frontend cards
 
-Gå till **HACS → Frontend** och installera dessa:
+Go to **HACS → Frontend** and install these:
 
-| Kort | Används till |
-|------|-------------|
-| `button-card` | Anpassade knappar och dividers |
-| `mushroom` | Snygga entitetskort |
-| `card-mod` | CSS-modifiering av kort |
-| `mini-media-player` | Mediaspelarkort |
-| `mini-graph-card` | Grafkort |
-| `layout-card` | Grid-layout för dashboards |
-| `expander-card` | Expanderbara sektioner |
-| `browser_mod` | Browser-integration |
+| Card | Used for |
+|------|----------|
+| `button-card` | Custom buttons and dividers |
+| `mushroom` | Clean entity cards |
+| `card-mod` | CSS customization of cards |
+| `mini-media-player` | Media player card |
+| `mini-graph-card` | Graph card |
+| `layout-card` | Grid layout for dashboards |
+| `expander-card` | Expandable sections |
+| `browser_mod` | Browser integration |
 
-Starta om HA efter installation av frontend-resurser.
+Restart HA after installing frontend resources.
 
 ---
 
-## Steg 12 — Grundläggande dashboard
+## Step 12 — Basic dashboard
 
-Skapa `~/dockdata/ha/dashboard/dashboard.yaml`:
+Create `~/dockdata/ha/dashboard/dashboard.yaml`:
 
 ```yaml
-title: Hem
+title: Home
 views:
-  - title: Hem
+  - title: Home
     path: home
     type: masonry
     cards:
       - type: markdown
-        content: "## Välkommen hem!"
+        content: "## Welcome home!"
 ```
 
 ---
 
-## Routerkonfiguration (port forwarding)
+## Router configuration (port forwarding)
 
-För extern åtkomst behöver du öppna portar i routern:
+For external access, open these ports in your router:
 
-| Port | Protokoll | Destination |
-|------|-----------|-------------|
-| 80   | TCP | Pi:ns IP:80 |
-| 443  | TCP | Pi:ns IP:443 |
+| Port | Protocol | Destination |
+|------|----------|-------------|
+| 80   | TCP | Pi IP:80 |
+| 443  | TCP | Pi IP:443 |
 
-Ge Pi:n en statisk LAN-IP (DHCP reservation) i routerns inställningar.
+Give the Pi a static LAN IP (DHCP reservation) in your router settings.
 
 ---
 
-## Felsökning
+## Troubleshooting
 
-### Kontrollera loggar
+### Check logs
 ```bash
 docker logs homeassistant --tail 50
 docker logs traefik --tail 50
 ```
 
-### SSL-certifikat fastnar
-- Kontrollera att `acme.json` har `chmod 600`
-- Kontrollera att DNS A-posten pekar rätt (`dig home.dindomän.se`)
-- Cloudflare-proxy måste vara **avstängd** (grå moln) för HA
+### SSL certificate stuck
+- Verify `acme.json` has `chmod 600`
+- Verify the DNS A record resolves correctly (`dig home.yourdomain.com`)
+- Cloudflare proxy must be **disabled** (grey cloud) for HA
 
-### HA startar inte
+### HA won't start
 ```bash
 docker exec homeassistant cat /config/home-assistant.log | tail -30
 ```
 
-### Trusted proxies-fel (kan ej logga in)
-Lägg till Traefik-containerns IP i `trusted_proxies` i `configuration.yaml`. Kör:
+### Trusted proxies error (can't log in)
+Add the Traefik container IP to `trusted_proxies` in `configuration.yaml`:
 ```bash
 docker inspect traefik | grep -i "ipaddress"
 ```
 
-### Kontrollera att HA är igång
+### Verify HA is running
 ```bash
 curl -s http://localhost:8123/api/ | python3 -m json.tool
 ```
 
 ---
 
-## Snabbkommandon
+## Quick reference
 
 ```bash
-# Starta om HA
+# Restart HA
 docker restart homeassistant
 
-# Se loggar live
+# Follow logs live
 docker logs homeassistant -f
 
-# Starta om Traefik
+# Restart Traefik
 docker restart traefik
 
-# Uppdatera HA till senaste version
+# Update HA to latest version
 cd ~/docker/smart-home
 docker compose pull
 docker compose up -d
 
-# Kolla alla containers
+# Check all containers
 docker ps
 ```
 
 ---
 
-## Säkerhet
+## Security
 
-- Byt aldrig ut `acme.json` utan att stänga Traefik först
-- Spara aldrig tokens, lösenord eller API-nycklar i git
-- Använd `secrets.yaml` i HA för känsliga värden:
+- Never replace `acme.json` without stopping Traefik first
+- Never commit tokens, passwords or API keys to git
+- Use `secrets.yaml` in HA for sensitive values:
   ```yaml
   # secrets.yaml
-  min_api_token: tokenvärdethär
+  my_api_token: yourtokenhere
   ```
-  Referera i konfiguration: `!secret min_api_token`
-- Exponera **aldrig** HA direkt utan Traefik (dvs bind inte port 8123 externt)
+  Reference in config: `!secret my_api_token`
+- Never expose HA directly without Traefik (do not bind port 8123 externally)
 
 ---
 
-## Nästa steg
+## Next steps
 
-- Lägg till integrationer via **Inställningar → Enheter & tjänster** (Zigbee2MQTT, Google Home, Spotify, etc.)
-- Konfigurera mobil-appen (Home Assistant för Android/iOS) — anslut via `https://home.dindomän.se`
-- Utforska automatiseringar via **Inställningar → Automatiseringar**
+- Add integrations via **Settings → Devices & Services** (Zigbee2MQTT, Google Home, Spotify, etc.)
+- Set up the mobile app (Home Assistant for Android/iOS) — connect via `https://home.yourdomain.com`
+- Explore automations via **Settings → Automations**
