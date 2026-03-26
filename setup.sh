@@ -219,7 +219,7 @@ http:
   middlewares:
     default-headers:
       headers:
-        frameDew: true
+        frameDeny: true
         sslRedirect: true
         browserXssFilter: true
         contentTypeNosniff: true

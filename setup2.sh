@@ -110,7 +110,7 @@ if [ -d "$HA_CONFIG/custom_components/hacs" ]; then
   info "HACS already installed — skipping."
 else
   info "Installing HACS..."
-  docker exec -it homeassistant bash -c "wget -q -O - https://get.hacs.xyz | bash -" || \
+  docker exec -i homeassistant bash -c "wget -q -O - https://get.hacs.xyz | bash -" || \
     error "HACS installation failed. Check docker logs homeassistant."
   info "HACS installed."
 fi
